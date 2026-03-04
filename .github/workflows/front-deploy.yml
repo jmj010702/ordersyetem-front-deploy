@@ -1,0 +1,40 @@
+name: deploy to s3, cloudfront #스크립트의 이름
+
+# 이벤트정의(트리거)
+on:
+  push:
+    branches:
+      - main #main에 push 했을 때 동작해라
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest #깃헙 가상pc에 운영체제
+    steps:
+      # uses: 재사용이 가능한 사전에 만들어진 작업절차
+      - uses: actions/checkout@v2 #누가 만들어놓은 actions에 checkout버전 2를 사용하겠다
+
+      - name: setup nodejs #노드를 설치하겠다
+        uses: actions/setup-node@v2 #
+        with:
+          node-version: '24'
+
+      # run은 개발자가 직접 작업을 정의
+      - name: npm install #작업의 이름
+        working-directory: . #현재 작업 폴더에서 이 작업을 진행ㅎ하라
+        run: npm install #npm install을 해라
+
+      - name: npm build
+        working-directory: .
+        run: npm run build
+
+      - name: setup aws cli #aws cli 설치
+        uses: aws-actions/configure-aws-credentials@v2 #aws configuration 실행하겠다
+        with:
+          aws-access-key-id: ${{secrets.AWS_ACCESS_KEY}} #나의 accessKey 적용 (깃 세팅스 secret and variable에서 설정한 이름 그대로)
+          aws-secret-access-key: ${{secrets.AWS_SECRET_KEY}} #앞에 secrets는 절대 변경 x
+          aws-region: "ap-northeast-2"
+
+      - name: deploy to s3
+        run: aws s3 cp ./dist s3://www.pocha-on.store/ --recursive #.dist폴더를 복사해서 s3 버킷에 copy하겠다
+
+      - name: invalidate cloudfront
+        run: aws cloudfront create-invalidation --distribution-id E2NOIPJXD6KAK9 --paths "/*"
